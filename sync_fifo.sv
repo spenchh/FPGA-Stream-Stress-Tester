@@ -15,12 +15,16 @@ module sync_fifo #(
 );
 
 logic [WIDTH-1:0] mem [DEPTH-1:0];  // width = 64, depth 16
+
 logic [$clog2(DEPTH)-1:0]  wr_ptr;  // Where in our memory data is being written to
 logic [$clog2(DEPTH)-1:0]  rd_ptr;  // Which memory location is being processed 
-logic [4:0]  counter;               // how many slots in our memory are open
 
-logic push_valid; // Checks if you can write to memory  (mem_full   && wt_en)
-logic pop_valid;  // Checks if you can read from memory (!mem_empty && rd_en)
+logic [$clog2(DEPTH+1)-1:0]  counter;               // how many slots in our memory are open
+
+logic push; // Checks if you can write to memory  (mem_full   && wt_en)
+logic pop;  // Checks if you can read from memory (!mem_empty && rd_en)
+
+assign o_mem_full = counter == DEPTH
 
 
 
