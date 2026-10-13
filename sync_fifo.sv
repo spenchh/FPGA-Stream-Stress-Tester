@@ -27,8 +27,8 @@ logic pop;  // Checks if you can read from memory (!o_mem_empty && i_rd_en)
 assign o_mem_full = (counter == DEPTH);
 assign o_mem_empty = (counter == 0);
 
-assign push = (!o_mem_full & i_wr_en);
-assign pop  = (!o_mem_empty & i_rd_en);
+assign push = (!o_mem_full && i_wr_en);
+assign pop  = (!o_mem_empty && i_rd_en);
 
 
 
