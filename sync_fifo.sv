@@ -36,20 +36,24 @@ always_ff @(posedge i_clk) begin
         rd_ptr  <= '0;
         counter <= '0;
     end else begin
-        if (push) begin
+
+        if (push) begin // Write to mem
             mem[wr_ptr] <= i_data;
             wr_ptr      <= wr_ptr + 1;
         end 
-        if (pop) begin
+
+        if (pop) begin // Read from mem
             o_data  <= mem[rd_ptr];
             rd_ptr  <= rd_ptr + 1;
         end
-        if (push ^ pop) begin 
+
+        if (push ^ pop) begin // Increment counter
             if (push)
                 counter <= counter + 1;
             else
                 counter <= counter - 1;
         end
+
     end
 end
 
