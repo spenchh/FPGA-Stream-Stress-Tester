@@ -207,4 +207,40 @@ async def test(dut):
 
     assert int(dut.o_data.value) == 99, "Should read 99"
     assert int(dut.o_mem_empty.value) == 1, "FIFO should be empty"
-    
+
+    # Check holding queued data while reads are disabled
+    for value in range(1,3):
+        await FallingEdge(dut.i_clk)
+        dut.i_data.value = value
+        dut.i_wr_en.value = 1
+        dut.i_rd_en.value = 0
+
+        await RisingEdge(dut.i_clk)
+        await ReadOnly()
+
+        assert int(dut.o_mem_empty.value) == 0, "FIFO shouldn't be empty"
+
+    for value in range(1,6): # Hold value for 5 cycles
+        await FallingEdge(dut.i_clk)
+        dut.i_data.value = 0
+        dut.i_wr_en.value = 0
+        dut.i_rd_en.value = 0
+
+        await RisingEdge(dut.i_clk)
+        await ReadOnly()
+
+        assert int(dut.o_mem_empty.value) == 0, "FIFO shouldn't be empty"
+        assert int(dut.o_mem_full.value) == 0, "FIFO shouldn't be full"
+
+    for value in range(1,3): # Read both values
+        await FallingEdge(dut.i_clk)
+        dut.i_data.value = 0
+        dut.i_wr_en.value = 0
+        dut.i_rd_en.value = 1
+
+        await RisingEdge(dut.i_clk)
+        await ReadOnly()
+
+        assert int(dut.o_data.value) == value, f"Should output {value}"
+        assert int(dut.o_mem_empty.value) == (value == 2), f"Incorrect empty flag after reading {value}"
+        assert int(dut.o_mem_full.value) == 0, "FIFO shouldn't be full"
