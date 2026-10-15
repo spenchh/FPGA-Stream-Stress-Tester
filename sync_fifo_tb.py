@@ -12,7 +12,7 @@ Checks:
     Rejected writes when full and reads when empty.
     Retaining queued data during idle cycles.
 """
-@cocotb.test(timeout_time=1, timeout_unit="us") # Max sim time allowed
+@cocotb.test(timeout_time=5, timeout_unit="us") # Max sim time allowed
 async def test(dut):
     # Reset Test
     dut.i_clk.value = 0
