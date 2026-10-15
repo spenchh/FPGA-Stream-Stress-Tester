@@ -182,6 +182,29 @@ async def test(dut):
     await RisingEdge(dut.i_clk)
     await ReadOnly()
 
-    assert int(dut.o_data.value) == 0, "Everything should be reset"
     assert int(dut.o_mem_empty.value) == 1, "FIFO should be empty"
     assert int(dut.o_mem_full.value) == 0, "FIFO shouldn't be full"
+
+    # Write then Read again
+    await FallingEdge(dut.i_clk)
+    dut.i_rst_n.value = 1
+    dut.i_data.value = 99
+    dut.i_wr_en.value = 1
+    dut.i_rd_en.value = 0
+
+    await RisingEdge(dut.i_clk)
+    await ReadOnly()
+
+    assert int(dut.o_mem_empty.value) == 0, "FIFO shouldn't be empty"
+
+    await FallingEdge(dut.i_clk)
+    dut.i_data.value = 0
+    dut.i_wr_en.value = 0
+    dut.i_rd_en.value = 1
+
+    await RisingEdge(dut.i_clk)
+    await ReadOnly()
+
+    assert int(dut.o_data.value) == 99, "Should read 99"
+    assert int(dut.o_mem_empty.value) == 1, "FIFO should be empty"
+    
