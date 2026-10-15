@@ -42,20 +42,6 @@ Accepted writes and reads can occur on the same edge; occupancy then stays uncha
 
 Reset clears the pointers and occupancy counter. Memory and `o_data` are not reset. Output data becomes meaningful after an accepted read and remains unchanged until another accepted read. Reading the final entry makes the FIFO empty while leaving that entry's value on `o_data`.
 
-## Simulation
-
-The intended toolchain is **cocotb 2.x, Verilator, and GNU Make**. Keep the Python testbench, RTL, and Makefile in the paths specified by the Makefile.
-
-From the directory containing the Makefile:
-
-```bash
-make
-```
-
-Set `COCOTB_TOPLEVEL` to `sync_fifo` and `COCOTB_TEST_MODULES` to the Python test filename without `.py`. Set `VERILOG_SOURCES` to the actual RTL path. Run in the environment where cocotb, Verilator, and Make are installed.
-
-Tests drive inputs on falling edges and check registered results after `RisingEdge` followed by `ReadOnly`.
-
 ## Next steps
 
 - [x] Implement synchronous FIFO storage, pointers, and occupancy logic.
