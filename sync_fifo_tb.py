@@ -5,10 +5,12 @@ from cocotb.triggers import RisingEdge, FallingEdge, ReadOnly
 # For a word do: dut.i_data.value = int.from_bytes(b"Hello", byteorder="big")
 
 """
-Set the inputs: Assert active-low reset with i_rst_n = 0, and disable read/write requests.
-Start the clock: A 10 ns period means a 100 MHz clock, starting low.
-Wait for a rising edge: Your FIFO’s synchronous reset executes on that edge, clearing its pointers and counter.
-Wait for ReadOnly(): Let the HDL updates settle so you can inspect the resulting outputs.
+Checks:
+    Reset and reset with queued data.
+    Data ordering and simultaneous read/write.
+    Filling, draining, and pointer wraparound.
+    Rejected writes when full and reads when empty.
+    Retaining queued data during idle cycles.
 """
 @cocotb.test(timeout_time=1, timeout_unit="us") # Max sim time allowed
 async def test(dut):
@@ -244,3 +246,94 @@ async def test(dut):
         assert int(dut.o_data.value) == value, f"Should output {value}"
         assert int(dut.o_mem_empty.value) == (value == 2), f"Incorrect empty flag after reading {value}"
         assert int(dut.o_mem_full.value) == 0, "FIFO shouldn't be full"
+    
+        # Both enables high while empty: only the write is accepted
+        previous_output = int(dut.o_data.value)
+
+        await FallingEdge(dut.i_clk)
+        dut.i_data.value = 77
+        dut.i_wr_en.value = 1
+        dut.i_rd_en.value = 1
+
+        await RisingEdge(dut.i_clk)
+        await ReadOnly()
+
+        assert int(dut.o_mem_empty.value) == 0, "Write should be accepted"
+        assert int(dut.o_mem_full.value) == 0, "FIFO shouldn't be full"
+        assert int(dut.o_data.value) == previous_output, "Empty read should be rejected"
+
+        # Read the value that was just written
+        await FallingEdge(dut.i_clk)
+        dut.i_wr_en.value = 0
+        dut.i_rd_en.value = 1
+
+        await RisingEdge(dut.i_clk)
+        await ReadOnly()
+
+        assert int(dut.o_data.value) == 77, "Should read 77"
+        assert int(dut.o_mem_empty.value) == 1, "FIFO should be empty"
+
+        # Fill the FIFO
+        for value in range(16):
+            await FallingEdge(dut.i_clk)
+            dut.i_data.value = value
+            dut.i_wr_en.value = 1
+            dut.i_rd_en.value = 0
+
+            await RisingEdge(dut.i_clk)
+            await ReadOnly()
+
+        assert int(dut.o_mem_full.value) == 1, "FIFO should be full"
+
+        # Both enables high while full: only the read is accepted
+        await FallingEdge(dut.i_clk)
+        dut.i_data.value = 999
+        dut.i_wr_en.value = 1
+        dut.i_rd_en.value = 1
+
+        await RisingEdge(dut.i_clk)
+        await ReadOnly()
+
+        assert int(dut.o_data.value) == 0, "Should read the oldest entry"
+        assert int(dut.o_mem_full.value) == 0, "Read should create space"
+        assert int(dut.o_mem_empty.value) == 0, "Unread entries should remain"
+
+        # Drain remaining entries and check their order
+        for value in range(1, 16):
+            await FallingEdge(dut.i_clk)
+            dut.i_wr_en.value = 0
+            dut.i_rd_en.value = 1
+
+            await RisingEdge(dut.i_clk)
+            await ReadOnly()
+
+            assert int(dut.o_data.value) == value, f"Should read {value}"
+            assert int(dut.o_mem_empty.value) == (value == 15), "Incorrect empty flag"
+
+        # If the full-boundary write was rejected, 999 must not be queued
+        assert int(dut.o_mem_empty.value) == 1, "Rejected write must not be stored"
+
+        # Output must hold when no read is accepted
+        previous_output = int(dut.o_data.value)
+
+        for _ in range(5):
+            await FallingEdge(dut.i_clk)
+            dut.i_data.value = 123
+            dut.i_wr_en.value = 0
+            dut.i_rd_en.value = 0
+
+            await RisingEdge(dut.i_clk)
+            await ReadOnly()
+
+            assert int(dut.o_data.value) == previous_output, "Output should hold"
+            assert int(dut.o_mem_empty.value) == 1, "FIFO should remain empty"
+
+        # An attempted read while empty must also leave the output unchanged
+        await FallingEdge(dut.i_clk)
+        dut.i_rd_en.value = 1
+
+        await RisingEdge(dut.i_clk)
+        await ReadOnly()
+
+        assert int(dut.o_data.value) == previous_output, "Rejected read changed output"
+        assert int(dut.o_mem_empty.value) == 1, "FIFO should remain empty"
