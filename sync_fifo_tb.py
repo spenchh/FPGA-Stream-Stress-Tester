@@ -12,6 +12,7 @@ Wait for ReadOnly(): Let the HDL updates settle so you can inspect the resulting
 """
 @cocotb.test(timeout_time=1, timeout_unit="us") # Max sim time allowed
 async def test(dut):
+    # Reset Test
     dut.i_clk.value = 0
     dut.i_rst_n.value = 0
 
@@ -28,17 +29,26 @@ async def test(dut):
     assert int(dut.o_mem_full.value)  == 0, "memory shouldn't be full"
     assert int(dut.o_mem_empty.value) == 1, "memory should be empty"
 
+    # Writing 1 value into memory
     await FallingEdge(dut.i_clk)
     dut.i_rst_n.value = 1
     dut.i_data.value = 1234567890123456
     dut.i_wr_en.value = 1
-    dut.i_rd_en.value = 0
 
     await RisingEdge(dut.i_clk)
     await ReadOnly()
 
     assert int(dut.o_mem_empty.value) == 0, "memory shouldn't be empty"
 
+    # Write another value to memory
+    await FallingEdge(dut.i_clk)
+    dut.i_data.value = 321654987
+
+    await RisingEdge(dut.i_clk)
+    await ReadOnly()
+
+    
+    # Reading one value from memory
     await FallingEdge(dut.i_clk)
     dut.i_data.value = 0
     dut.i_wr_en.value = 0
@@ -47,8 +57,10 @@ async def test(dut):
     await RisingEdge(dut.i_clk)
     await ReadOnly()
 
-    assert int(dut.o_mem_empty.value) == 1, "memory should be empty"
+    assert int(dut.o_mem_empty.value) == 0, "memory should be empty"
     assert int(dut.o_data.value) == 1234567890123456, "invalid data pop"
+
+    
 
 
     
