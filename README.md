@@ -55,8 +55,3 @@ Reset clears the pointers and occupancy counter. Memory and `o_data` are not res
 - [ ] Implement and review the asynchronous FIFO and CDC constraints.
 - [ ] Collect post-route timing/resource results and run an FPGA demonstration.
 
-## Completion target
-
-Demonstrate repeatable fault scenarios, correct buffering and ordering, and a test that catches an intentionally introduced receiver bug. Measure throughput, latency, resource usage, and the effect of FIFO depth on burst tolerance. Report measured results as each milestone is completed.
-
-Estimated effort: **30–45 hours for the simulation version**, or **45–70 hours including FPGA bring-up and implementation review**. Most development can be done on a laptop; the board is needed for the final hardware validation.
