@@ -29,7 +29,7 @@ async def test(dut):
     assert int(dut.o_mem_full.value)  == 0, "memory shouldn't be full"
     assert int(dut.o_mem_empty.value) == 1, "memory should be empty"
 
-    # Writing 1 value into memory
+    # Writing 1 value into memory, counter = 1
     await FallingEdge(dut.i_clk)
     dut.i_rst_n.value = 1
     dut.i_data.value = 1234567890123456
@@ -40,15 +40,17 @@ async def test(dut):
 
     assert int(dut.o_mem_empty.value) == 0, "memory shouldn't be empty"
 
-    # Write another value to memory
+    # Write another value to memory, counter = 2
     await FallingEdge(dut.i_clk)
     dut.i_data.value = 321654987
+    dut.i_wr_en.value = 1
+    dut.i_rd_en.value = 0
 
     await RisingEdge(dut.i_clk)
     await ReadOnly()
 
     
-    # Reading one value from memory
+    # Reading one value from memory, counter = 1
     await FallingEdge(dut.i_clk)
     dut.i_data.value = 0
     dut.i_wr_en.value = 0
@@ -57,10 +59,129 @@ async def test(dut):
     await RisingEdge(dut.i_clk)
     await ReadOnly()
 
-    assert int(dut.o_mem_empty.value) == 0, "memory should be empty"
+    assert int(dut.o_mem_empty.value) == 0, "memory shouldn't be empty"
     assert int(dut.o_data.value) == 1234567890123456, "invalid data pop"
 
-    
+    # Write + read from memory, counter = 1
+    await FallingEdge(dut.i_clk)
+    Hello = int.from_bytes(b"Hello", byteorder="big")
+    dut.i_data.value = Hello
+    dut.i_wr_en.value = 1
+    dut.i_rd_en.value = 1
+
+    await RisingEdge(dut.i_clk)
+    await ReadOnly()
+
+    assert int(dut.o_data.value) == 321654987, "invalid data pop"
+
+    # Writes values till FIFO is full
+    for value in range(2, 17): # Writes 2 through 16
+        await FallingEdge(dut.i_clk)
+        dut.i_data.value = value
+        dut.i_wr_en.value = 1
+        dut.i_rd_en.value = 0
+
+        await RisingEdge(dut.i_clk)
+        await ReadOnly()
+
+        assert int(dut.o_mem_full.value) == (value == 16), f"Incorrect full flag after writing {value}"
+
+    assert int(dut.o_mem_empty.value) == 0, "full FIFO shouldn't be empty"
 
 
+    # Write one more to FIFO
+    await FallingEdge(dut.i_clk)
+    dut.i_data.value = int.from_bytes(b"Extra", byteorder="big")
+    dut.i_wr_en.value = 1
+    dut.i_rd_en.value = 0
+
+    await RisingEdge(dut.i_clk)
+    await ReadOnly()
+
+    assert int(dut.o_mem_full.value) == 1, "FIFO should be full"
+
+    # Read data
+    await FallingEdge(dut.i_clk)
+    dut.i_data.value = 0
+    dut.i_wr_en.value = 0
+    dut.i_rd_en.value = 1
+
+    await RisingEdge(dut.i_clk)
+    await ReadOnly()
+
+    assert int(dut.o_data.value) == Hello, "FIFO should output Hello"
+    assert int(dut.o_mem_full.value) == 0, "FIFO shouldn't be full"
+
+    # Read loop for 2-16
+    for read in range(2, 17):
+        await FallingEdge(dut.i_clk)
+        dut.i_data.value = 0
+        dut.i_wr_en.value = 0
+        dut.i_rd_en.value = 1
+
+        await RisingEdge(dut.i_clk)
+        await ReadOnly()
+
+        assert int(dut.o_data.value) == read, f"FIFO should output {read}"
+        assert int(dut.o_mem_empty.value) == (read == 16), f"Incorrect empty flag after reaching {read}"
+
+    # Read extra 
+    await FallingEdge(dut.i_clk)
+    dut.i_data.value = 0
+    dut.i_wr_en.value = 0
+    dut.i_rd_en.value = 1
+
+    await RisingEdge(dut.i_clk)
+    await ReadOnly()
+
+    assert int(dut.o_mem_empty.value) == 1, "Should be empty"
+    assert int(dut.o_mem_full.value) == 0, "Shouldn't be full"
+
+    # Write data
+    await FallingEdge(dut.i_clk)
+    dut.i_data.value = 1
+    dut.i_wr_en.value = 1
+    dut.i_rd_en.value = 0
+
+    await RisingEdge(dut.i_clk)
+    await ReadOnly()
+
+    assert int(dut.o_mem_empty.value) == 0, "Shouldn't be empty"
+    assert int(dut.o_mem_full.value) == 0, "Shouldn't be full"
+
+    # Reads data
+    await FallingEdge(dut.i_clk)
+    dut.i_data.value = 0
+    dut.i_wr_en.value = 0
+    dut.i_rd_en.value = 1
     
+    await RisingEdge(dut.i_clk)
+    await ReadOnly()
+    
+    assert int(dut.o_data.value) == 1, "Should read 1"
+    assert int(dut.o_mem_empty.value) == 1, "Should be empty"
+    assert int(dut.o_mem_full.value) == 0, "Shouldn't be full"
+
+    # Write two times
+    for value in (1,3):
+        await FallingEdge(dut.i_clk)
+        dut.i_data.value = value
+        dut.i_wr_en.value = 1
+        dut.i_rd_en.value = 0
+
+        await RisingEdge(dut.i_clk)
+        await ReadOnly()
+
+    # Reset
+    await FallingEdge(dut.i_clk)
+    dut.i_rst_n.value = 0
+    dut.i_data.value = 0
+    dut.i_wr_en.value = 0
+    dut.i_rd_en.value = 0
+
+    await RisingEdge(dut.i_clk)
+    await ReadOnly()
+
+    assert int(dut.o_data.value) == 0, "Everything should be reset"
+    assert int(dut.o_mem_empty.value) == 1, "FIFO should be empty"
+    assert int(dut.o_mem_full.value) == 0, "FIFO shouldn't be full"
