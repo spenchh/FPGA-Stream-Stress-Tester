@@ -14,7 +14,7 @@ Checks:
 """
 @cocotb.test(timeout_time=5, timeout_unit="us") # Max sim time allowed
 async def test(dut):
-    # Reset Test
+    # Reset Testzz
     dut.i_clk.value = 0
     dut.i_rst_n.value = 0
 
